@@ -1,0 +1,6 @@
+# ignore all files in /alrisDistortionFit/PBCO/results
+/PBCO/results/
+/__pycache__
+# ignore all .npz files everywhere
+**/*.npz
+**/__pycache__/

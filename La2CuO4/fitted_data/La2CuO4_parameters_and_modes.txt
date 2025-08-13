@@ -1,0 +1,26 @@
+final loss: 0.00068896
+r-factor normalised: 0.54909070
+r-factor not normalised: 1.32306735
+learning_rate: 0.00300000
+n_epochs: 100
+Best model parameters:
+Cmca[1,0,0]Y1+(a)[La1:f:dsp] : -0.11537293 
+Cmca[1,0,0]Y1+(a)[La1:f:dsp] : -1.96259832 
+Cmca[1,0,0]Y3+(a)[La1:f:dsp] : 2.69284725 
+Cmca[1,0,0]Y3+(a)[La1:f:dsp] : -0.04736518 
+Cmca[1,0,0]Y1+(a)[O1:f:dsp] : -0.67110425 
+Cmca[1,0,0]Y1+(a)[O1:f:dsp] : 2.24539399 
+Cmca[1,0,0]Y3+(a)[O1:f:dsp] : 1.34315622 
+Cmca[1,0,0]Y3+(a)[O1:f:dsp] : 0.30996472 
+Cmca[1,0,0]Y1+(a)[O2:e:dsp] : -3.02565551 
+Cmca[1,0,0]Y3+(a)[O2:e:dsp] : 1.39338470 
+Cmca[1,0,0]Y3+(a)[O2:e:dsp] : 1.04706049 
+Cmca[1,0,0]Y1+(a)[O3:g:dsp] : 1.22655296 
+Cmca[1,0,0]Y1+(a)[O3:g:dsp] : -0.67709523 
+Cmca[1,0,0]Y1+(a)[O3:g:dsp] : -0.20436326 
+Cmca[1,0,0]Y3+(a)[O3:g:dsp] : -0.13907675 
+Cmca[1,0,0]Y3+(a)[O3:g:dsp] : 1.02258027 
+Cmca[1,0,0]Y3+(a)[O3:g:dsp] : 2.62826777 
+Cmca[1,0,0]Y1+(a)[O4:e:dsp] : -0.27925611 
+Cmca[1,0,0]Y3+(a)[O4:e:dsp] : -0.28689283 
+Cmca[1,0,0]Y3+(a)[O4:e:dsp] : 2.73814869 

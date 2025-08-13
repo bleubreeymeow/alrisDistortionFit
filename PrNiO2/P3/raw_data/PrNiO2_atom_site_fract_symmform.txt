@@ -1,0 +1,8 @@
+Pr1_1 6 0 Dy Dz 
+O1_1  8 Dx Dx 0 
+O1_2  8 Dx Dx 0 
+O1_3  6 Dx Dy 0 
+Ni1_1 2 0 0 0   
+Ni1_2 2 0 0 0   
+Ni1_3 4 0 0 0   
+Ni1_4 8 Dx Dx 0 

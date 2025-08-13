@@ -1,0 +1,45 @@
+
+#======================================================================
+# CRYSTAL DATA
+#----------------------------------------------------------------------
+data_VESTA_phase_1
+
+_chemical_name_common                  'Ba2 Cu3 O6.9 Y'
+_cell_length_a                         3.82030(8)
+_cell_length_b                         3.88548(10)
+_cell_length_c                         11.6835(3)
+_cell_angle_alpha                      90.000000
+_cell_angle_beta                       90.000000
+_cell_angle_gamma                      90.000000
+_cell_volume                           173.426210
+_space_group_name_H-M_alt              'P m m m'
+_space_group_IT_number                 47
+
+loop_
+_space_group_symop_operation_xyz
+   'x, y, z'
+   '-x, -y, -z'
+   '-x, -y, z'
+   'x, y, -z'
+   '-x, y, -z'
+   'x, -y, z'
+   'x, -y, -z'
+   '-x, y, z'
+
+loop_
+   _atom_site_label
+   _atom_site_occupancy
+   _atom_site_fract_x
+   _atom_site_fract_y
+   _atom_site_fract_z
+   _atom_site_adp_type
+   _atom_site_U_iso_or_equiv
+   _atom_site_type_symbol
+   Pr1        1.0     0.500000     0.500000     0.500000    Uiso  ? Pr
+   Ba1        1.0     0.500000     0.500000     0.18393(6)  Uiso  ? Ba
+   Cu1        1.0     0.000000     0.000000     0.000000    Uiso  ? Cu
+   Cu2        1.0     0.000000     0.000000     0.35501(8)  Uiso  ? Cu
+   O1         0.9100  0.000000     0.500000     0.000000    Uiso  ? O
+   O2         1.0     0.500000     0.000000     0.37819(16) Uiso  ? O
+   O3         1.0     0.000000     0.500000     0.37693(16) Uiso  ? O
+   O4         1.0     0.000000     0.000000     0.15840(13) Uiso  ? O
