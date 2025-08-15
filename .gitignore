@@ -10,3 +10,5 @@
 **/.DS_Store
 **/.DS_Store
 
+#ignore cursor rules
+.cursor/rules/
