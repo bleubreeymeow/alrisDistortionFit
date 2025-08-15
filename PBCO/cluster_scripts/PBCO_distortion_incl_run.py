@@ -192,9 +192,9 @@ if __name__ == "__main__":
     number_of_modes = 1290
     n_features = experimental_data.shape[0]
     n_dim = 3
-    iteration_num = 64
+    iteration_num = 32
     seed = 1
-    n_cores = 64
+    n_cores = 32
     epochs = 75
     lr = 0.1
     hkl_list = experimental_data[["h", "k", "l"]].values.tolist()
