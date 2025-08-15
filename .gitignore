@@ -4,3 +4,9 @@
 # ignore all .npz files everywhere
 **/*.npz
 **/__pycache__/
+#mac junk
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/.DS_Store
+
