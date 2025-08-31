@@ -239,8 +239,8 @@ if __name__ == "__main__":
         each_iteration_loss[i] = res[3]
         r_factors[i] = res[4]
 
-    savedir = f'results/LOG{datetime.now().strftime("%Y%m%d_%H%M%S")}_iters{iteration_num}_epochs{epochs}_lr{lr}_task{slurm_array_task_id}'
+    savedir = f'results/inc_run_LOG_iters{iteration_num}_epochs{epochs}_lr{lr}'
     os.makedirs(savedir, exist_ok=True)  # Ensure the directory exists
-    np.savez(os.path.join(savedir, 'all_result_matrix.npz'), histogram_matrix=histogram_matrix , loss_matrix=loss_matrix , each_iteration_loss=each_iteration_loss, r_factors=r_factors)
+    np.savez(os.path.join(savedir, f'_task{slurm_array_task_id}_all_result_matrix.npz'), histogram_matrix=histogram_matrix , loss_matrix=loss_matrix , each_iteration_loss=each_iteration_loss, r_factors=r_factors)
 
     print(f"Total time taken: {time() - t0:.2f} seconds")
