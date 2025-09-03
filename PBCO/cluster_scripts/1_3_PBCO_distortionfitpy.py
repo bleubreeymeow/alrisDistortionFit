@@ -97,7 +97,7 @@ def fun_tf(hkl_list, pars, matrix):
 
     sf_hkl = get_structure_factors(hkl_list, modified_struct)
     intensity = (abs(sf_hkl)) ** 2
-    w = tf.constant(0.0004877332589381476, dtype=tf.float32)  # Debye-Waller factor 
+    w = tf.constant(0.000811509257682975, dtype=tf.float32)  # Debye-Waller factor 
     qnorms = tf.norm(tf.cast(hkl_list, tf.float32), axis=1)
     intensity = intensity * tf.exp(- w* qnorms ** 2)  # Apply Debye-Waller factor
     max_intensity = tf.reduce_max(intensity)
@@ -161,7 +161,7 @@ def make_sample_weights(experimental_data):
         if label == 0:
             labels_err.append(1)  # Assign a high error for zero labels
         else:
-            labels_err.append(1000)  # Inverse error for each label
+            labels_err.append((1/label) * 100)  # Inverse error for each label
 
     labels_err = tf.convert_to_tensor(labels_err, dtype=tf.float32)
     labels = tf.convert_to_tensor(labels, dtype=tf.float32)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     # matrix = np.loadtxt('alrisDistortionFit/PBCO/matrix.txt', dtype=np.float32)
     # max_mode_amps = np.loadtxt('alrisDistortionFit/PBCO/new_PBCO_fit/new_PBCO_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
-    experimental_data = pd.read_csv('1_3_LOGcombined_peaks.csv')
+    experimental_data = pd.read_csv('1_3_combined_peaks_300K.csv')
     matrix = np.loadtxt('1_3_matrix.txt', dtype=np.float32)
     max_mode_amps = np.loadtxt('PBCO_1_3_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         each_iteration_loss[i] = res[3]
         r_factors[i] = res[4]
 
-    savedir = f'results/LOG{datetime.now().strftime("%Y%m%d_%H%M%S")}_iters{iteration_num}_epochs{epochs}_lr{lr}'
+    savedir = f'results/{datetime.now().strftime("%Y%m%d_%H%M%S")}_iters{iteration_num}_epochs{epochs}_lr{lr}'
     os.makedirs(savedir, exist_ok=True)  # Ensure the directory exists
     np.savez(os.path.join(savedir, 'all_result_matrix.npz'), histogram_matrix=histogram_matrix , loss_matrix=loss_matrix , each_iteration_loss=each_iteration_loss, r_factors=r_factors)
 
