@@ -55,7 +55,7 @@ def run_iteration(iteration):
     # Compile the model with the custom loss function and metric
     model.compile(
         optimizer=optim,
-        loss= 'mse', # MSE_weighted() if using errors
+        loss= WeightedMeanSquaredError(), # MSE_weighted() if using errors
         metrics=[r_factor_metric],
         run_eagerly=False,  # Set to True for debugging, False for performance
     )
@@ -100,8 +100,6 @@ def fun_tf(hkl_list, pars, matrix):
     w = tf.constant(0.000811509257682975, dtype=tf.float32)  # Debye-Waller factor 
     qnorms = tf.norm(tf.cast(hkl_list, tf.float32), axis=1)
     intensity = intensity * tf.exp(- w* qnorms ** 2)  # Apply Debye-Waller factor
-    max_intensity = tf.reduce_max(intensity)
-    intensity = tf.where(intensity < max_intensity * 0.01, tf.zeros_like(intensity), intensity)  # remove intensities below a threshold
     intensity = intensity / tf.reduce_max(intensity)  # Normalize to max
     intensity = intensity / tf.reduce_sum(intensity) * 60
     return intensity
@@ -114,7 +112,7 @@ class FunAsLayer(tf.keras.layers.Layer):
         self.matrix = matrix
 
     def build(self, input_shape):
-        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.01), trainable=True)
+        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.1), trainable=True)
         super().build(input_shape)
 
     def call(self, inputs):
@@ -182,7 +180,7 @@ def make_sample_weights(experimental_data):
         if label == 0:
             labels_err.append(1)  # Assign a high error for zero labels
         else:
-            labels_err.append(1/label * 5)   # Inverse error for each label
+            labels_err.append(1/label) # Inverse error for each label
 
     labels_err = tf.convert_to_tensor(labels_err, dtype=tf.float32)
     labels = tf.convert_to_tensor(labels, dtype=tf.float32)
@@ -201,18 +199,18 @@ if __name__ == "__main__":
     # matrix = np.loadtxt('alrisDistortionFit/PBCO/matrix.txt', dtype=np.float32)
     # max_mode_amps = np.loadtxt('alrisDistortionFit/PBCO/new_PBCO_fit/new_PBCO_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
-    experimental_data = pd.read_csv('1_3_combined_peaks_300K.csv')
+    experimental_data = pd.read_csv('1_3_combined_peaks_300K_no0.csv')
     matrix = np.loadtxt('P2_matrix.txt', dtype=np.float32)
     max_mode_amps = np.loadtxt('PBCO_1_3_P2_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
     number_of_modes = 52
     n_features = experimental_data.shape[0]
     n_dim = 3
-    iteration_num = 1000
+    iteration_num = 2000
     seed = 1
     n_cores = 32
     epochs = 150
-    lr = 0.02
+    lr = 6e-3
     hkl_list = experimental_data[["h", "k", "l"]].values.tolist()
 
     features = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
