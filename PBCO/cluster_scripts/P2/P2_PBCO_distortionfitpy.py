@@ -7,7 +7,7 @@ os.environ['PYTHONHASHSEED'] = '1'  # Set a fixed seed for reproducibility
 import numpy as np
 import tensorflow as tf
 import pandas as pd
-from alris_one_third_functions import shift_atoms, transform_list_hkl_p63_p65, get_structure_factors , atom_position_list
+from P2_alris_one_third_functions import shift_atoms, transform_list_hkl_p63_p65, get_structure_factors , atom_position_list
 import multiprocessing as mp
 from time import time
 from datetime import datetime
@@ -101,7 +101,7 @@ def fun_tf(hkl_list, pars, matrix):
     qnorms = tf.norm(tf.cast(hkl_list, tf.float32), axis=1)
     intensity = intensity * tf.exp(- w* qnorms ** 2)  # Apply Debye-Waller factor
     max_intensity = tf.reduce_max(intensity)
-    intensity = tf.where(intensity < max_intensity * 0.05, tf.zeros_like(intensity), intensity)  # remove intensities below a threshold
+    intensity = tf.where(intensity < max_intensity * 0.01, tf.zeros_like(intensity), intensity)  # remove intensities below a threshold
     intensity = intensity / tf.reduce_max(intensity)  # Normalize to max
     intensity = intensity / tf.reduce_sum(intensity) * 60
     return intensity
@@ -114,7 +114,7 @@ class FunAsLayer(tf.keras.layers.Layer):
         self.matrix = matrix
 
     def build(self, input_shape):
-        self.param = self.add_weight(name='param', shape=(156,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.2), trainable=True)
+        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.01), trainable=True)
         super().build(input_shape)
 
     def call(self, inputs):
@@ -142,7 +142,7 @@ class PerSampleMSE(tf.keras.losses.Loss):
         squared_error = tf.square(y_true - y_pred)
         per_sample_mse = tf.reduce_mean(squared_error, axis=-1)
         return per_sample_mse  # shape (batch_size,)
-  
+
 class WeightedMeanSquaredError(tf.keras.losses.Loss):
     def __init__(self,reduction=tf.keras.losses.Reduction.AUTO, name='WeightedMeanSquaredError'):
         super(WeightedMeanSquaredError, self).__init__(reduction=reduction, name=name)
@@ -163,7 +163,7 @@ class WeightedMeanSquaredError(tf.keras.losses.Loss):
         # (sum(weights * mse(y_p - y_t))) / sum(weights)
         wmse_loss = actual_loss * (num_of_el / tf.math.reduce_sum(sample_weight))
         return wmse_loss
-    
+     
 # Define the custom metric function
 def r_factor_metric(y_true, y_pred):
     labels = y_true
@@ -182,7 +182,7 @@ def make_sample_weights(experimental_data):
         if label == 0:
             labels_err.append(1)  # Assign a high error for zero labels
         else:
-            labels_err.append((1/label) * 100)  # Inverse error for each label
+            labels_err.append(1/label * 5)   # Inverse error for each label
 
     labels_err = tf.convert_to_tensor(labels_err, dtype=tf.float32)
     labels = tf.convert_to_tensor(labels, dtype=tf.float32)
@@ -202,17 +202,17 @@ if __name__ == "__main__":
     # max_mode_amps = np.loadtxt('alrisDistortionFit/PBCO/new_PBCO_fit/new_PBCO_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
     experimental_data = pd.read_csv('1_3_combined_peaks_300K.csv')
-    matrix = np.loadtxt('1_3_matrix.txt', dtype=np.float32)
-    max_mode_amps = np.loadtxt('PBCO_1_3_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
+    matrix = np.loadtxt('P2_matrix.txt', dtype=np.float32)
+    max_mode_amps = np.loadtxt('PBCO_1_3_P2_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
-    number_of_modes = 156
+    number_of_modes = 52
     n_features = experimental_data.shape[0]
     n_dim = 3
-    iteration_num = 2000
+    iteration_num = 1000
     seed = 1
     n_cores = 32
-    epochs = 75
-    lr = 0.08
+    epochs = 150
+    lr = 0.02
     hkl_list = experimental_data[["h", "k", "l"]].values.tolist()
 
     features = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
