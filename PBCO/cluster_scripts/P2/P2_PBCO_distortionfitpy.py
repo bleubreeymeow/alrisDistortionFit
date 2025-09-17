@@ -112,7 +112,7 @@ class FunAsLayer(tf.keras.layers.Layer):
         self.matrix = matrix
 
     def build(self, input_shape):
-        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.1), trainable=True)
+        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.01), trainable=True)
         super().build(input_shape)
 
     def call(self, inputs):
@@ -209,8 +209,8 @@ if __name__ == "__main__":
     iteration_num = 2000
     seed = 1
     n_cores = 32
-    epochs = 150
-    lr = 6e-3
+    epochs = 300
+    lr = 3e-3
     hkl_list = experimental_data[["h", "k", "l"]].values.tolist()
 
     features = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
