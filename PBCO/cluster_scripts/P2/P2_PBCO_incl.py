@@ -1,6 +1,6 @@
 import os
 os.environ['PYTHONHASHSEED'] = '1'  # Set a fixed seed for reproducibility
-
+slurm_array_task_id=int(os.environ["SLURM_ARRAY_TASK_ID"])
 # os.environ['TF_NUM_INTRAOP_THREADS'] = '1'  # For within-op parallelism
 # os.environ['TF_NUM_INTEROP_THREADS'] = '1'  # For between-op parallelism
 
@@ -111,7 +111,7 @@ class FunAsLayer(tf.keras.layers.Layer):
         self.matrix = matrix
 
     def build(self, input_shape):
-        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.06), trainable=True)
+        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.08), trainable=True)
         super().build(input_shape)
 
     def call(self, inputs):
@@ -178,7 +178,7 @@ def make_sample_weights(experimental_data):
         if label == 0:
             labels_err.append(1e-9)  # Assign a high error for zero labels
         else:
-            labels_err.append(100) # Inverse error for each label
+            labels_err.append(label**2) # Inverse error for each label
 
     labels_err = tf.convert_to_tensor(labels_err, dtype=tf.float32)
     labels = tf.convert_to_tensor(labels, dtype=tf.float32)
@@ -197,12 +197,12 @@ if __name__ == "__main__":
     # matrix = np.loadtxt('alrisDistortionFit/PBCO/matrix.txt', dtype=np.float32)
     # max_mode_amps = np.loadtxt('alrisDistortionFit/PBCO/new_PBCO_fit/new_PBCO_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
 
-    experimental_data = pd.read_csv('1_3_combined_peaks_300K_no0.csv')
-    matrix = np.loadtxt('P2_matrix.txt', dtype=np.float32)
+    experimental_data = pd.read_csv('LOGcombined_peaks.csv')
+    matrix = np.loadtxt('matrix.txt', dtype=np.float32)
     max_mode_amps = np.loadtxt('PBCO_1_3_P2_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
-    indices_to_zero = [2 , 5 , 6 , 10 , 11 ,12,  13 , 14 , 18 , 19 ,22 , 23 , 38 , 43 , 4 , 17 , 19 , 46 , 1 , 7 , 35 , 44 , 49]
-    for index in indices_to_zero:
-        max_mode_amps[index - 1] = 0.0
+    included_mode = [2 , 5 , 6 , 10 , 11 , 13 , 14 , 18 , 22 , 23 , 38 , 43]
+    this_included_mode = included_mode[slurm_array_task_id]
+    max_mode_amps[this_included_mode - 1] = 0.0
 
     number_of_modes = 52
     n_features = experimental_data.shape[0]
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     seed = 1
     n_cores = 32
     epochs = 500
-    lr = 4e-3
+    lr = 3e-3
     hkl_list = experimental_data[["h", "k", "l"]].values.tolist()
 
     features = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
