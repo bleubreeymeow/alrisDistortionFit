@@ -111,7 +111,7 @@ class FunAsLayer(tf.keras.layers.Layer):
         self.matrix = matrix
 
     def build(self, input_shape):
-        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.06), trainable=True)
+        self.param = self.add_weight(name='param', shape=(52,), initializer=tf.keras.initializers.RandomNormal(mean=0.,stddev=0.09), trainable=True)
         super().build(input_shape)
 
     def call(self, inputs):
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     experimental_data = pd.read_csv('1_3_combined_peaks_300K_no0.csv')
     matrix = np.loadtxt('P2_matrix.txt', dtype=np.float32)
     max_mode_amps = np.loadtxt('PBCO_1_3_P2_max_bound_vectors.txt', dtype=np.float32 , delimiter=',')
-    indices_to_zero = [2 , 5 , 6 , 10 , 11 ,12,  13 , 14 , 18 , 19 ,22 , 23 , 38 , 43 , 4 , 17 , 19 , 46 , 1 , 7 , 35 , 44 , 49]
+    indices_to_zero = [2 , 5 , 6 , 10 , 11 ,12,  13 , 14 , 18 , 19 ,22 , 23 , 38 , 43 , 4 , 17 , 19 , 46 , 1 , 7 , 35 , 44 , 49 , 16 , 24 , 28 , 45]
     for index in indices_to_zero:
         max_mode_amps[index - 1] = 0.0
 
