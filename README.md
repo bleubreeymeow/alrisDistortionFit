@@ -1,8 +1,10 @@
+# PBCO structural refinement documentation
+
 This is the documentation regarding my structure refinement project of PBCO. My mode current version of the code is within `PBCO/PBCO_1_3_inplane/P2`. All information needed to understand the functionality of this codebase is self contained (except that the raw data is contained in `PBCO/PBCO_1_3/raw_data/1_3_combined_peaks_300K.csv`) . All the other folders can be ignored. Fitting code can be found in `P2_gradient_descent.ipynb`.
 
 There are a few changes that I have made during the summer compared to CrystalClearFit, and I will outline it in the following way:
 
-Major changes:
+## Major changes:
 
 1. Semi-automated process on generating code needed for the functions.py file. (note: in the P2 folder, `P2_alris_one_third_functions.py` acts as `functions.py` in CrystalClearFit.)
 
@@ -16,9 +18,9 @@ Therefore, I felt that using distortion modes directly as a fitting parameter, t
 
 In summary, my code's `fun_tf` is constructed in the following way:
 
-1. `shift_atoms`: from the values of the distortion modes in the current epoch, calculate the atomic_displacements (ie Pr1_1_dx, etc.)
+i. `shift_atoms`: from the values of the distortion modes in the current epoch, calculate the atomic_displacements (ie Pr1_1_dx, etc.)
 
-2. `atom_position_list`: calculated the distorted atom positions ( ie. `['Pr', 59, [0.25 + Pr1_1_dx, 0.375 + Pr1_1_dy, 0.25]]`,) The fitting parameters(distortion mode bounds , under the variable `max_mode_amps`) are specified by a txt file generated in the `one_third_preprocessing.ipynb` file. One of the important points to note is that the `str` file also includes strain modes, which are not displacive distortion modes. `one_third_preprocessing.ipynb` includes instructions on how to remove those strain modes.
+ii. `atom_position_list`: calculated the distorted atom positions ( ie. `['Pr', 59, [0.25 + Pr1_1_dx, 0.375 + Pr1_1_dy, 0.25]]`,) The fitting parameters(distortion mode bounds , under the variable `max_mode_amps`) are specified by a txt file generated in the `one_third_preprocessing.ipynb` file. One of the important points to note is that the `str` file also includes strain modes, which are not displacive distortion modes. `one_third_preprocessing.ipynb` includes instructions on how to remove those strain modes.
 
 3. `shift_atoms` function complete overhaul
 
@@ -30,13 +32,13 @@ During the summer I found a really big bug, and I believe that it came from tran
 
 The issue was later fixed by:
 
-1. converting hkl values back to units of (angstrom)^-1 in the function transform_list_hkl_p63_p65.
+i. converting hkl values back to units of (angstrom)^-1 in the function transform_list_hkl_p63_p65.
 
 converting the fractional positions using the function `fractional_coords`. Now coordinates have units of angstorm.
 
-2. `phase` variable in `get_structure_factors` does not have `2*pi` because that is already accounted for in `transform_list_hkl_p63_p65` and `fractional_coords`.
+ii. `phase` variable in `get_structure_factors` does not have `2*pi` because that is already accounted for in `transform_list_hkl_p63_p65` and `fractional_coords`.
 
-3. xrayutilities package gives the fractional coordinates of the child structure. If there is mirror symmetry between the child and parent structure, (ie in the cif file, `_iso_parent-to-child.transform_Pp_abc` does not follow (a , b , c) configuration), transformation needs to be done in `atom_position_list`. For example, for PBCO, it has the parent to child transofrm of (-3a,c,3b). This means that the y and the z coordinates are flipped. Therefore, at the end of `atom_position_list`, it flips it back to the (a , b , c) configuration.
+iii. xrayutilities package gives the fractional coordinates of the child structure. If there is mirror symmetry between the child and parent structure, (ie in the cif file, `_iso_parent-to-child.transform_Pp_abc` does not follow (a , b , c) configuration), transformation needs to be done in `atom_position_list`. For example, for PBCO, it has the parent to child transofrm of (-3a,c,3b). This means that the y and the z coordinates are flipped. Therefore, at the end of `atom_position_list`, it flips it back to the (a , b , c) configuration.
 
 5. Raw data normalisation
 
@@ -48,13 +50,13 @@ Raw data is normalised to its the total sum of raw intensities. ie: labels = lab
 
 The r-factor calculated is wrong in `r_factor_metric`. `alris_r_factor` function was used as a sanity check.
 
-Things that are helpful for a qualitative judgement of each fitting:
+## Things that are helpful for a qualitative judgement of each fitting:
 
 1. Comparison of experimental and simulated intensities plot (x = y plot)
 
 2. histogram for percentage differences between experimental and simulated intensities
 
-Current exploration:
+## Current exploration:
 
 1. Using histograms to eliminate distortion modes
 
