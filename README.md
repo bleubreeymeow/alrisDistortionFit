@@ -16,10 +16,18 @@ Therefore, I felt that using distortion modes directly as a fitting parameter, t
 
 In summary, my code's `fun_tf` is constructed in the following way:
 
-    1. `shift_atoms`: from the values of the distortion modes in the current epoch, calculate the atomic_displacements (ie Pr1_1_dx, etc.)
+    1. `shift_atoms`: from the values of the distortion modes 
+    in the current epoch, calculate the atomic_displacements 
+    (ie Pr1_1_dx, etc.)
 
-    2. `atom_position_list`: calculated the distorted atom positions ( ie. `['Pr', 59, [0.25 + Pr1_1_dx, 0.375 + Pr1_1_dy, 0.25]]`,)
-        The fitting parameters(distortion mode bounds , under the variable max_mode_amps) are specified by a txt file generated in the one_third_preprocessing.ipynb file. One of the important points to note is that the str file also includes strain modes, which are not displacive distortion modes. one_third_preprocessing.ipynb includes instructions on how to remove those strain modes.
+    2. `atom_position_list`: calculated the distorted atom 
+    positions ( ie. `['Pr', 59, [0.25 + Pr1_1_dx, 0.375 + Pr1_1_dy, 0.25]]`,)
+    The fitting parameters(distortion mode bounds , under the variable 
+    max_mode_amps) are specified by a txt file generated in the 
+    `one_third_preprocessing.ipynb` file. One of the important 
+    points to note is that the `str` file also includes strain modes,
+    which are not displacive distortion modes. `one_third_preprocessing.ipynb` 
+    includes instructions on how to remove those strain modes.
 
 3. `shift_atoms` function complete overhaul
 
@@ -31,13 +39,26 @@ During the summer I found a really big bug, and I believe that it came from tran
 
 The issue was later fixed by:
 
-    1. converting hkl values back to units of (angstrom)^-1 in the function transform_list_hkl_p63_p65.
+    1. converting hkl values back to units of (angstrom)^-1
+    in the function transform_list_hkl_p63_p65.
 
-        converting the fractional positions using the function fractional_coords. Now coordinates have units of angstorm.
+        converting the fractional positions using the function 
+        `fractional_coords`. Now coordinates have units of angstorm.
 
-    2. `phase` variable in `get_structure_factors` does not have `2*pi` because that is already accounted for in `transform_list_hkl_p63_p65` and `fractional_coords`.
+    2. `phase` variable in `get_structure_factors` does not have 
+    `2*pi` because that is already accounted for in 
+    `transform_list_hkl_p63_p65` and `fractional_coords`.
 
-    3. xrayutilities package gives the fractional coordinates of the child structure. If there is mirror symmetry between the child and parent structure, (ie in the cif file, `_iso_parent-to-child.transform_Pp_abc` does not follow (a , b , c) configuration, transformation needs to be done in `atom_position_list`. For example, for PBCO, it has the parent to child transofrm of (-3a,c,3b). This means that the y and the z coordinates are flipped. Therefore, at the end of `atom_position_list`, it flips it back to the (a , b , c) configuration.
+    3. xrayutilities package gives the fractional coordinates 
+    of the child structure. If there is mirror symmetry between 
+    the child and parent structure, (ie in the cif file, 
+    `_iso_parent-to-child.transform_Pp_abc` does not follow 
+    (a , b , c) configuration, transformation needs to be done 
+    in `atom_position_list`. For example, for PBCO, it has the 
+    parent to child transofrm of (-3a,c,3b). This means that 
+    the y and the z coordinates are flipped. Therefore, at the 
+    end of `atom_position_list`, it flips it back to the 
+    (a , b , c) configuration.
 
 5. Raw data normalisation
 
