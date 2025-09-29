@@ -1,0 +1,323 @@
+import numpy as np
+import tensorflow as tf
+
+def transform_list_hkl_p63_p65(hkl_list):
+    """
+    Function to transform a list of hkl vectors from original (r.l.u) units back to ang**-1 units
+    :param hkl_list: List of hkl vectors
+    :return: List of hkl vectors in units of ang**-1
+
+    """
+    # Convert hkl_list to a TensorFlow tensor
+    a = 3.82030
+    b = 3.88548
+    c = 11.68350
+    hkl_list = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
+
+    h_new = hkl_list[:, 0] * 2 * np.pi / a
+    k_new = hkl_list[:, 1] * 2 * np.pi / b
+    l_new = hkl_list[:, 2] * 2 * np.pi / c
+
+    return tf.stack([h_new, k_new, l_new], axis=1)
+
+
+def fractional_coords(positions):
+    '''
+    Function to change the coordinates from its fractional form w.r.t the superlattice unit
+    cell back with units of ang.
+    3b,c,3a transformation was done for C2 3b,c,3a
+    '''
+    a = 3.82030
+    b = 3.88548
+    c = 11.68350
+
+    x_new = 3 * a * positions[:, 0] 
+    y_new = 3 * b * positions[:, 1]
+    z_new = c * positions[:, 2]
+
+    fractional_positions = tf.stack([x_new, y_new, z_new], axis=1)
+
+    return fractional_positions
+
+
+def get_atomic_form_factor(qnorm, atom):
+    """
+    Function to calculate the atomic form factor for a specific atom. Values for the Gaussian's are from
+    International Tables for Crystallography, Vol. C, 2006.
+
+    https://lampz.tugraz.at/~hadley/ss1/crystaldiffraction/atomicformfactors/formfactors.php#:~:text=Each%20diffraction%20peak%20corresponds%20to,intensity%20of%20the%20diffraction%20peak.
+    
+    :param qnorm: Norm of the hkl vector |Q|
+    :param atom: Type of atom (atm only Pr, Ni or O is possible)
+    :return: The atomic form factor
+
+    Oxidation states:
+    Pr: 4+
+    Ba: 2+
+    Cu: 2+
+    O: 2+
+
+    this one is used
+
+    value of O is used becuase there is no O2-
+
+    or
+
+    Pr: 1+
+    Ba: 2+
+    Cu: 3+
+    O: 2-
+
+
+    """
+    # Define values for Pr, Ni, O atoms as TensorFlow constants
+    Pr_vals = {
+        'a': tf.constant([20.9413, 20.0539, 12.4668, 0.296689], dtype=tf.float32),
+        'b': tf.constant([2.54467, 0.202481, 14.8137, 45.4643], dtype=tf.float32),
+        'c': tf.constant(1.24285, dtype=tf.float32),
+    }
+    Ba_vals = {
+        'a': tf.constant([20.1807, 19.1136, 10.9054, 0.77634], dtype=tf.float32),
+        'b': tf.constant([3.21367, 0.28331, 20.0558, 51.746], dtype=tf.float32),
+        'c': tf.constant(3.02902, dtype=tf.float32),
+    }
+    Cu_vals = {
+        'a': tf.constant([11.8168, 7.11181, 5.78135, 1.14523], dtype=tf.float32),
+        'b': tf.constant([3.37484, 0.244078, 7.9876, 19.897], dtype=tf.float32),
+        'c': tf.constant(1.14431, dtype=tf.float32),
+    }
+    O_vals = {
+        'a': tf.constant([3.7504, 2.84294, 1.54298, 1.652091], dtype=tf.float32),
+        'b': tf.constant([16.5151, 6.59203, 0.319201, 43.3486], dtype=tf.float32),
+        'c': tf.constant(0.24206, dtype=tf.float32),
+    }
+
+    # Choose atom values based on the input atom
+    if atom == "Pr":
+        vals_dict = Pr_vals
+    elif atom == "Ba":
+        vals_dict = Ba_vals
+    elif atom == "Cu":
+        vals_dict = Cu_vals
+    else:
+        vals_dict = O_vals
+
+    # Start with the constant "c" term
+    fq = vals_dict["c"]
+
+    # Use element-wise operations instead of a loop
+    a_vals = vals_dict["a"]
+    b_vals = vals_dict["b"]
+
+    # Compute the exponential terms
+    exponential_terms = tf.exp(-b_vals * (qnorm / (4 * tf.constant(np.pi, dtype=tf.float32))) ** 2)
+
+    # Multiply the "a" values with the corresponding exponential terms and sum them
+    fq += tf.reduce_sum(a_vals * exponential_terms)
+
+    return fq
+
+
+
+def get_structure_factors(hkl_batch, structure):
+    """
+    Vectorized structure factor calculation.
+
+    Parameters
+    ----------
+    hkl_batch : Tensor [N, 3]
+        List of N hkl vectors
+    structure : List of (atom, occupancy, position)
+        Atomic basis of the crystal
+
+    Returns
+    -------
+    Tensor [N] (complex64)
+        Structure factors for each hkl
+
+    https://advanced.onlinelibrary.wiley.com/doi/10.1002/aenm.202300760
+
+    """
+
+    # Get atomic types and positions
+    atoms = [a for a, _, _ in structure]
+    positions = tf.stack([tf.convert_to_tensor(p, dtype=tf.float32) for _, _, p in structure])  # [A, 3]
+    positions = fractional_coords(positions)  # Convert to angstrom
+
+    # Compute qnorms for each hkl vector (shape [N])
+    qnorms = tf.norm(tf.cast(hkl_batch, tf.float32), axis=1)  # [N]
+    # w = tf.constant(0.01, dtype=tf.float32)  # Debye-Waller factor old is 0.00159
+
+    # Get per-atom form factors per hkl
+    fq_table = {
+        "Pr": tf.vectorized_map(lambda q: tf.cast(get_atomic_form_factor(q, "Pr"), tf.complex64), qnorms),
+        "Ba": tf.vectorized_map(lambda q: tf.cast(get_atomic_form_factor(q, "Ba"), tf.complex64), qnorms),
+        "Cu": tf.vectorized_map(lambda q: tf.cast(get_atomic_form_factor(q, "Cu"), tf.complex64), qnorms),
+        "O": tf.vectorized_map(lambda q: tf.cast(get_atomic_form_factor(q, "O"), tf.complex64), qnorms)
+    }  # Each: [N]
+
+    # Build full form factor matrix [N, A]
+    fq_matrix = tf.stack([fq_table[atom] for atom in atoms], axis=1)  # shape [N, A]
+
+    # Compute phase terms: [N, A]
+    phase_arg = tf.tensordot(tf.cast(hkl_batch, tf.float32), tf.transpose(positions), axes=1)  # [N, A]
+    phase_arg = tf.cast(phase_arg, tf.float32)  # Ensure float32 type for complex conversion
+    phase = tf.exp(tf.complex(0.0,phase_arg))  # [N, A]
+
+    # Element-wise multiply and sum over atoms
+    F_hkl = tf.reduce_sum(fq_matrix * phase, axis=1)  # [N]
+
+    return F_hkl
+
+def shift_atoms(matrix , a):   
+    '''
+        matrix multiplication of mode amplitudes and its respective weights
+
+        Parameters
+        ---------
+        matrix : [N , certain value]
+            loaded from a txt file, values which gives the linear combination of modes its weights
+        a : Tensor [N]
+            mode magnitudes 
+
+        Returns
+        ---------
+        Tensor [N]
+    
+    ''' 
+    return matrix @ tf.reshape(a , [-1 , 1])
+
+def atom_position_list(Pr1_1_dx, Pr1_1_dz, Pr1_2_dx, Pr1_2_dz, Pr1_3_dx, Pr1_3_dz, Pr1_4_dz, Pr1_5_dz, Pr1_6_dz, Ba1_1_dx, Ba1_1_dy, Ba1_1_dz, Ba1_2_dx, Ba1_2_dy, Ba1_2_dz, Ba1_3_dx, Ba1_3_dy, Ba1_3_dz, Ba1_4_dy, Ba1_4_dz, Ba1_5_dy, Ba1_5_dz, Ba1_6_dy, Ba1_6_dz, Cu1_1_dz, Cu1_2_dz, Cu1_3_dz, Cu1_4_dx, Cu1_4_dz, Cu1_5_dx, Cu1_5_dz, Cu1_6_dx, Cu1_6_dz, Cu2_1_dy, Cu2_1_dz, Cu2_2_dy, Cu2_2_dz, Cu2_3_dy, Cu2_3_dz, Cu2_4_dx, Cu2_4_dy, Cu2_4_dz, Cu2_5_dx, Cu2_5_dy, Cu2_5_dz, Cu2_6_dx, Cu2_6_dy, Cu2_6_dz, O1_1_dx, O1_1_dz, O1_2_dx, O1_2_dz, O1_3_dx, O1_3_dz, O1_4_dz, O1_5_dz, O1_6_dz, O2_1_dy, O2_1_dz, O2_2_dy, O2_2_dz, O2_3_dy, O2_3_dz, O2_4_dx, O2_4_dy, O2_4_dz, O2_5_dx, O2_5_dy, O2_5_dz, O2_6_dx, O2_6_dy, O2_6_dz, O3_1_dx, O3_1_dy, O3_1_dz, O3_2_dx, O3_2_dy, O3_2_dz, O3_3_dx, O3_3_dy, O3_3_dz, O3_4_dy, O3_4_dz, O3_5_dy, O3_5_dz, O3_6_dy, O3_6_dz, O4_1_dy, O4_1_dz, O4_2_dy, O4_2_dz, O4_3_dy, O4_3_dz, O4_4_dx, O4_4_dy, O4_4_dz, O4_5_dx, O4_5_dy, O4_5_dz, O4_6_dx, O4_6_dy, O4_6_dz):
+    '''
+    Function used to retrieve the atomic positions in fractional coords w.r.t the superlattice
+    unit cell. Transformation between the y positions and the z positions are done at the end
+    of this function such that the coordinate system is in agreement with the parent structure.
+    
+    '''
+
+    res = [
+        ['Pr', '59', [0.16667 + Pr1_1_dx, 0.5, 0.16667 + Pr1_1_dz]],
+        ['Pr', '59', [0.83333 + Pr1_1_dx, 0.5, 0.16667 + Pr1_1_dz]],
+        ['Pr', '59', [0.16667 + Pr1_2_dx, 0.5, 0.5 + Pr1_2_dz]],
+        ['Pr', '59', [0.83333 + Pr1_2_dx, 0.5, 0.5 + Pr1_2_dz]],
+        ['Pr', '59', [0.16667 + Pr1_3_dx, 0.5, 0.83333 + Pr1_3_dz]],
+        ['Pr', '59', [0.83333 + Pr1_3_dx, 0.5, 0.83333 + Pr1_3_dz]],
+        ['Pr', '59', [0.5, 0.5, 0.16667 + Pr1_4_dz]],
+        ['Pr', '59', [0.5, 0.5, 0.5 + Pr1_5_dz]],
+        ['Pr', '59', [0.5, 0.5, 0.83333 + Pr1_6_dz]],
+        ['Ba', '56', [0.16667 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
+        ['Ba', '56', [0.83333 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
+        ['Ba', '56', [0.16667 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
+        ['Ba', '56', [0.83333 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
+        ['Ba', '56', [0.16667 + Ba1_2_dx, 0.18393 + Ba1_2_dy, 0.5 + Ba1_2_dz]],
+        ['Ba', '56', [0.83333 + Ba1_2_dx, 0.81607 + Ba1_2_dy, 0.5 + Ba1_2_dz]],
+        ['Ba', '56', [0.16667 + Ba1_2_dx, 0.81607 + Ba1_2_dy, 0.5 + Ba1_2_dz]],
+        ['Ba', '56', [0.83333 + Ba1_2_dx, 0.18393 + Ba1_2_dy, 0.5 + Ba1_2_dz]],
+        ['Ba', '56', [0.16667 + Ba1_3_dx, 0.18393 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
+        ['Ba', '56', [0.83333 + Ba1_3_dx, 0.81607 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
+        ['Ba', '56', [0.16667 + Ba1_3_dx, 0.81607 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
+        ['Ba', '56', [0.83333 + Ba1_3_dx, 0.18393 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
+        ['Ba', '56', [0.5, 0.18393 + Ba1_4_dy, 0.16667 + Ba1_4_dz]],
+        ['Ba', '56', [0.5, 0.81607 + Ba1_4_dy, 0.16667 + Ba1_4_dz]],
+        ['Ba', '56', [0.5, 0.18393 + Ba1_5_dy, 0.5 + Ba1_5_dz]],
+        ['Ba', '56', [0.5, 0.81607 + Ba1_5_dy, 0.5 + Ba1_5_dz]],
+        ['Ba', '56', [0.5, 0.18393 + Ba1_6_dy, 0.83333 + Ba1_6_dz]],
+        ['Ba', '56', [0.5, 0.81607 + Ba1_6_dy, 0.83333 + Ba1_6_dz]],
+        ['Cu', '29', [0.0, 0.0, 0.0 + Cu1_1_dz]],
+        ['Cu', '29', [0.0, 0.0, 0.33333 + Cu1_2_dz]],
+        ['Cu', '29', [0.0, 0.0, 0.66667 + Cu1_3_dz]],
+        ['Cu', '29', [0.33333 + Cu1_4_dx, 0.0, 0.0 + Cu1_4_dz]],
+        ['Cu', '29', [0.66667 + Cu1_4_dx, 0.0, 0.0 + Cu1_4_dz]],
+        ['Cu', '29', [0.33333 + Cu1_5_dx, 0.0, 0.33333 + Cu1_5_dz]],
+        ['Cu', '29', [0.66667 + Cu1_5_dx, 0.0, 0.33333 + Cu1_5_dz]],
+        ['Cu', '29', [0.33333 + Cu1_6_dx, 0.0, 0.66667 + Cu1_6_dz]],
+        ['Cu', '29', [0.66667 + Cu1_6_dx, 0.0, 0.66667 + Cu1_6_dz]],
+        ['Cu', '29', [0.0, 0.35501 + Cu2_1_dy, 0.0 + Cu2_1_dz]],
+        ['Cu', '29', [0.0, 0.64499 + Cu2_1_dy, 0.0 + Cu2_1_dz]],
+        ['Cu', '29', [0.0, 0.35501 + Cu2_2_dy, 0.33333 + Cu2_2_dz]],
+        ['Cu', '29', [0.0, 0.64499 + Cu2_2_dy, 0.33333 + Cu2_2_dz]],
+        ['Cu', '29', [0.0, 0.35501 + Cu2_3_dy, 0.66667 + Cu2_3_dz]],
+        ['Cu', '29', [0.0, 0.64499 + Cu2_3_dy, 0.66667 + Cu2_3_dz]],
+        ['Cu', '29', [0.33333 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.0 + Cu2_4_dz]],
+        ['Cu', '29', [0.66667 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.0 + Cu2_4_dz]],
+        ['Cu', '29', [0.33333 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.0 + Cu2_4_dz]],
+        ['Cu', '29', [0.66667 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.0 + Cu2_4_dz]],
+        ['Cu', '29', [0.33333 + Cu2_5_dx, 0.35501 + Cu2_5_dy, 0.33333 + Cu2_5_dz]],
+        ['Cu', '29', [0.66667 + Cu2_5_dx, 0.64499 + Cu2_5_dy, 0.33333 + Cu2_5_dz]],
+        ['Cu', '29', [0.33333 + Cu2_5_dx, 0.64499 + Cu2_5_dy, 0.33333 + Cu2_5_dz]],
+        ['Cu', '29', [0.66667 + Cu2_5_dx, 0.35501 + Cu2_5_dy, 0.33333 + Cu2_5_dz]],
+        ['Cu', '29', [0.33333 + Cu2_6_dx, 0.35501 + Cu2_6_dy, 0.66667 + Cu2_6_dz]],
+        ['Cu', '29', [0.66667 + Cu2_6_dx, 0.64499 + Cu2_6_dy, 0.66667 + Cu2_6_dz]],
+        ['Cu', '29', [0.33333 + Cu2_6_dx, 0.64499 + Cu2_6_dy, 0.66667 + Cu2_6_dz]],
+        ['Cu', '29', [0.66667 + Cu2_6_dx, 0.35501 + Cu2_6_dy, 0.66667 + Cu2_6_dz]],
+        ['O', '8', [0.16667 + O1_1_dx, 0.0, 0.0 + O1_1_dz]],
+        ['O', '8', [0.83333 + O1_1_dx, 0.0, 0.0 + O1_1_dz]],
+        ['O', '8', [0.16667 + O1_2_dx, 0.0, 0.33333 + O1_2_dz]],
+        ['O', '8', [0.83333 + O1_2_dx, 0.0, 0.33333 + O1_2_dz]],
+        ['O', '8', [0.16667 + O1_3_dx, 0.0, 0.66667 + O1_3_dz]],
+        ['O', '8', [0.83333 + O1_3_dx, 0.0, 0.66667 + O1_3_dz]],
+        ['O', '8', [0.5, 0.0, 0.0 + O1_4_dz]],
+        ['O', '8', [0.5, 0.0, 0.33333 + O1_5_dz]],
+        ['O', '8', [0.5, 0.0, 0.66667 + O1_6_dz]],
+        ['O', '8', [0.0, 0.37819 + O2_1_dy, 0.16667 + O2_1_dz]],
+        ['O', '8', [0.0, 0.62181 + O2_1_dy, 0.16667 + O2_1_dz]],
+        ['O', '8', [0.0, 0.37819 + O2_2_dy, 0.5 + O2_2_dz]],
+        ['O', '8', [0.0, 0.62181 + O2_2_dy, 0.5 + O2_2_dz]],
+        ['O', '8', [0.0, 0.37819 + O2_3_dy, 0.83333 + O2_3_dz]],
+        ['O', '8', [0.0, 0.62181 + O2_3_dy, 0.83333 + O2_3_dz]],
+        ['O', '8', [0.33333 + O2_4_dx, 0.37819 + O2_4_dy, 0.16667 + O2_4_dz]],
+        ['O', '8', [0.66667 + O2_4_dx, 0.62181 + O2_4_dy, 0.16667 + O2_4_dz]],
+        ['O', '8', [0.33333 + O2_4_dx, 0.62181 + O2_4_dy, 0.16667 + O2_4_dz]],
+        ['O', '8', [0.66667 + O2_4_dx, 0.37819 + O2_4_dy, 0.16667 + O2_4_dz]],
+        ['O', '8', [0.33333 + O2_5_dx, 0.37819 + O2_5_dy, 0.5 + O2_5_dz]],
+        ['O', '8', [0.66667 + O2_5_dx, 0.62181 + O2_5_dy, 0.5 + O2_5_dz]],
+        ['O', '8', [0.33333 + O2_5_dx, 0.62181 + O2_5_dy, 0.5 + O2_5_dz]],
+        ['O', '8', [0.66667 + O2_5_dx, 0.37819 + O2_5_dy, 0.5 + O2_5_dz]],
+        ['O', '8', [0.33333 + O2_6_dx, 0.37819 + O2_6_dy, 0.83333 + O2_6_dz]],
+        ['O', '8', [0.66667 + O2_6_dx, 0.62181 + O2_6_dy, 0.83333 + O2_6_dz]],
+        ['O', '8', [0.33333 + O2_6_dx, 0.62181 + O2_6_dy, 0.83333 + O2_6_dz]],
+        ['O', '8', [0.66667 + O2_6_dx, 0.37819 + O2_6_dy, 0.83333 + O2_6_dz]],
+        ['O', '8', [0.16667 + O3_1_dx, 0.37693 + O3_1_dy, 0.0 + O3_1_dz]],
+        ['O', '8', [0.83333 + O3_1_dx, 0.62307 + O3_1_dy, 0.0 + O3_1_dz]],
+        ['O', '8', [0.16667 + O3_1_dx, 0.62307 + O3_1_dy, 0.0 + O3_1_dz]],
+        ['O', '8', [0.83333 + O3_1_dx, 0.37693 + O3_1_dy, 0.0 + O3_1_dz]],
+        ['O', '8', [0.16667 + O3_2_dx, 0.37693 + O3_2_dy, 0.33333 + O3_2_dz]],
+        ['O', '8', [0.83333 + O3_2_dx, 0.62307 + O3_2_dy, 0.33333 + O3_2_dz]],
+        ['O', '8', [0.16667 + O3_2_dx, 0.62307 + O3_2_dy, 0.33333 + O3_2_dz]],
+        ['O', '8', [0.83333 + O3_2_dx, 0.37693 + O3_2_dy, 0.33333 + O3_2_dz]],
+        ['O', '8', [0.16667 + O3_3_dx, 0.37693 + O3_3_dy, 0.66667 + O3_3_dz]],
+        ['O', '8', [0.83333 + O3_3_dx, 0.62307 + O3_3_dy, 0.66667 + O3_3_dz]],
+        ['O', '8', [0.16667 + O3_3_dx, 0.62307 + O3_3_dy, 0.66667 + O3_3_dz]],
+        ['O', '8', [0.83333 + O3_3_dx, 0.37693 + O3_3_dy, 0.66667 + O3_3_dz]],
+        ['O', '8', [0.5, 0.37693 + O3_4_dy, 0.0 + O3_4_dz]],
+        ['O', '8', [0.5, 0.62307 + O3_4_dy, 0.0 + O3_4_dz]],
+        ['O', '8', [0.5, 0.37693 + O3_5_dy, 0.33333 + O3_5_dz]],
+        ['O', '8', [0.5, 0.62307 + O3_5_dy, 0.33333 + O3_5_dz]],
+        ['O', '8', [0.5, 0.37693 + O3_6_dy, 0.66667 + O3_6_dz]],
+        ['O', '8', [0.5, 0.62307 + O3_6_dy, 0.66667 + O3_6_dz]],
+        ['O', '8', [0.0, 0.1584 + O4_1_dy, 0.0 + O4_1_dz]],
+        ['O', '8', [0.0, 0.8416 + O4_1_dy, 0.0 + O4_1_dz]],
+        ['O', '8', [0.0, 0.1584 + O4_2_dy, 0.33333 + O4_2_dz]],
+        ['O', '8', [0.0, 0.8416 + O4_2_dy, 0.33333 + O4_2_dz]],
+        ['O', '8', [0.0, 0.1584 + O4_3_dy, 0.66667 + O4_3_dz]],
+        ['O', '8', [0.0, 0.8416 + O4_3_dy, 0.66667 + O4_3_dz]],
+        ['O', '8', [0.33333 + O4_4_dx, 0.1584 + O4_4_dy, 0.0 + O4_4_dz]],
+        ['O', '8', [0.66667 + O4_4_dx, 0.8416 + O4_4_dy, 0.0 + O4_4_dz]],
+        ['O', '8', [0.33333 + O4_4_dx, 0.8416 + O4_4_dy, 0.0 + O4_4_dz]],
+        ['O', '8', [0.66667 + O4_4_dx, 0.1584 + O4_4_dy, 0.0 + O4_4_dz]],
+        ['O', '8', [0.33333 + O4_5_dx, 0.1584 + O4_5_dy, 0.33333 + O4_5_dz]],
+        ['O', '8', [0.66667 + O4_5_dx, 0.8416 + O4_5_dy, 0.33333 + O4_5_dz]],
+        ['O', '8', [0.33333 + O4_5_dx, 0.8416 + O4_5_dy, 0.33333 + O4_5_dz]],
+        ['O', '8', [0.66667 + O4_5_dx, 0.1584 + O4_5_dy, 0.33333 + O4_5_dz]],
+        ['O', '8', [0.33333 + O4_6_dx, 0.1584 + O4_6_dy, 0.66667 + O4_6_dz]],
+        ['O', '8', [0.66667 + O4_6_dx, 0.8416 + O4_6_dy, 0.66667 + O4_6_dz]],
+        ['O', '8', [0.33333 + O4_6_dx, 0.8416 + O4_6_dy, 0.66667 + O4_6_dz]],
+        ['O', '8', [0.66667 + O4_6_dx, 0.1584 + O4_6_dy, 0.66667 + O4_6_dz]]
+    ]
+    # swap the element to  3b,c,3a
+    # res is a list of lists
+    for i in range(len(res)):
+        res[i][2][0] , res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][0] , res[i][2][1]
+
+    return res
+
