@@ -61,3 +61,28 @@ The r-factor calculated is wrong in `r_factor_metric`. `alris_r_factor` function
 ### 1. Using histograms to eliminate distortion modes
 
 For structure with high number of possible distortion modes, it can cause the optimizer to overfit, or unable to find a feasible solution. In such cases, it might be beneficial to eliminate modes which are 'inactive'. Inactive modes can be defined as modes which has a near zero value. Since the loss landscape is complex, and there are many local minimas, it is beneficial to run many iterations of the fitting, and create a histogram for each mode and inspect their distribution. If the distribution resembles a gaussian centred at zero, it is an 'inactive mode' which doesn't contribute much to the description of the distorted structure.
+
+## 8th Oct 2025 update
+
+### 1. Sanity check
+
+One definitive fact for structure factor calculation is that the intensities should be 0 at non-integer hkl positions. However, in the sanity check, there seems to be non-zero intensities at non-bragg positions. I had two hypothesis:
+
+1. Since the normalisation was done to the sum of the superlattice peaks, the normalisation was not done correctly. Normalisation should be done when bragg peaks are also present.
+2. There are some boundary effects of periodic functions that should be accounted for using fourier transform.
+
+To test point 1, I made an hkl list (I named it `all_hkl_list`) where it also contains bragg peaks. I normalise it , and under 0 distortions, it produces values at bragg peaks, and very small (1e-8) intensities at superlattice peaks. This makes sense. However, this is not true when the hkl list does not contain bragg hkl values. 
+
+Since I have also extracted the intensities of the bragg peaks, I made a new hkl list which contains all the peaks and tried to fit it. The optimiser does not like this since the bragg peaks are ~1e4 times greater than the superlattice peaks, so the optimiser leaned heavily towards the bragg peaks and neglected fitting superrlattice peaks. This is called class imbalance in machine learning I believe. I tried different methods to mitigate this class imbalance issue but it didnt work. 
+
+Which means that only superlattice peaks should be fitted, however, the normalisation should be done with the bragg peaks as well, such that we account for the bragg peak values when we do normalisation for the simulated intensities. Essentially the sum(all_intensities) value needs to be correct or else the fit cannot converge at all. 
+
+I tried multiple methods to solve this issue, but the method which worked is the following:
+
+1. Calculate intensities of all allowed peaks (braggs, superlattices).
+2. Normalise the simulated intensities (intensity / sum(intensity))
+3. only extract intensities of hkl values which is given in the original (experimental) hkl list
+
+This required a major restructuring of the hkl_list, but it worked. There are a few bugs along the way. One major change was `shuffle` in `model.fit`. For some reason this comes into play during the fit, so just set it to `False`. 
+
+Boundary effects of periodic function doesn't seem to play a role in the calculation after writing a bit of code to account for that. So that part of the code was removed. 
