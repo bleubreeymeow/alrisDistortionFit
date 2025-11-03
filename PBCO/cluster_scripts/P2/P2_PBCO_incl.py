@@ -73,7 +73,7 @@ def run_iteration(iteration):
     )
 
     final_loss = history.history['loss'][-1]
-    best_model_pars = max_mode_amps * tf.tanh(model.layers[-1].get_weights()[0])
+    best_model_pars = model.layers[-1].get_weights()[0]
     y_pred = fun_tf(features, best_model_pars , matrix , hkl_indices)
     labels = tf.reshape(labels, [-1])
     rf = r_factor_metric(labels, y_pred)
@@ -245,8 +245,12 @@ if __name__ == "__main__":
         max_mode_amps[index - 1] = 0.0
     this_included_mode = indices_to_zero[slurm_array_task_id]
 
+    print(f"including mode {this_included_mode} back in")
+
     #recover the max amp of the mode which is included.
     max_mode_amps[this_included_mode - 1] = max_mode_amps2[this_included_mode - 1]
+
+    print(f"Max mode amps after including mode {this_included_mode}: {max_mode_amps}")
 
     number_of_modes = 52
     n_features = experimental_data.shape[0]
@@ -298,7 +302,7 @@ if __name__ == "__main__":
         each_iteration_loss[i] = res[3]
         r_factors[i] = res[4]
 
-    savedir = f'results/run_1_inc_{this_included_mode}_iters{iteration_num}_epochs{epochs}_lr{lr}'
+    savedir = f'results/run1/run_1_inc_{this_included_mode}_iters{iteration_num}_epochs{epochs}_lr{lr}'
     os.makedirs(savedir, exist_ok=True)  # Ensure the directory exists
     np.savez(os.path.join(savedir, 'all_result_matrix.npz'), histogram_matrix=histogram_matrix , loss_matrix=loss_matrix , each_iteration_loss=each_iteration_loss, r_factors=r_factors)
 

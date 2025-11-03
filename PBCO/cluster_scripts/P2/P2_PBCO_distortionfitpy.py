@@ -252,7 +252,9 @@ if __name__ == "__main__":
     features = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
     matrix = tf.convert_to_tensor(matrix, dtype=tf.float32)
 
-    indices_to_zero = [3 , 4 , 9 , 10 , 11 , 12 , 15 , 21 , 22 , 23 , 24]
+    run_num = 2
+    # indices_to_zero = [3 , 4 , 9 , 10 , 11 , 12 , 15 , 21 , 22 , 23 , 24] # run 1
+    indices_to_zero = [9 , 15 , 21 , 24] # run 2
     for index in indices_to_zero:
         max_mode_amps[index - 1] = 0.0
     max_mode_amps = tf.convert_to_tensor(max_mode_amps, dtype=tf.float32)
@@ -293,7 +295,7 @@ if __name__ == "__main__":
         each_iteration_loss[i] = res[3]
         r_factors[i] = res[4]
 
-    savedir = f'results/run_1_iters{iteration_num}_epochs{epochs}_lr{lr}'
+    savedir = f'results/run_{run_num}_iters{iteration_num}_epochs{epochs}_lr{lr}'
     os.makedirs(savedir, exist_ok=True)  # Ensure the directory exists
     np.savez(os.path.join(savedir, 'all_result_matrix.npz'), histogram_matrix=histogram_matrix , loss_matrix=loss_matrix , each_iteration_loss=each_iteration_loss, r_factors=r_factors)
 
