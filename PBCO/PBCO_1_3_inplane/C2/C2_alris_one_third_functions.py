@@ -8,15 +8,22 @@ def transform_list_hkl_p63_p65(hkl_list):
     :return: List of hkl vectors in units of ang**-1
 
     """
-    # Convert hkl_list to a TensorFlow tensor
-    a = 3.82030
-    b = 3.88548
-    c = 11.68350
+    # # Convert hkl_list to a TensorFlow tensor
+    # a = 3.82030
+    # b = 3.88548
+    # c = 11.68350
+    # hkl_list = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
+
+    # h_new = hkl_list[:, 0] * 2 * np.pi / a
+    # k_new = hkl_list[:, 1] * 2 * np.pi / b
+    # l_new = hkl_list[:, 2] * 2 * np.pi / c
+
+
     hkl_list = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
 
-    h_new = hkl_list[:, 0] * 2 * np.pi / a
-    k_new = hkl_list[:, 1] * 2 * np.pi / b
-    l_new = hkl_list[:, 2] * 2 * np.pi / c
+    h_new = 3 * hkl_list[:, 1]
+    k_new = hkl_list[: , 2]
+    l_new = 3 * hkl_list[:, 0]
 
     return tf.stack([h_new, k_new, l_new], axis=1)
 
@@ -142,7 +149,7 @@ def get_structure_factors(hkl_batch, structure):
     # Get atomic types and positions
     atoms = [a for a, _, _ in structure]
     positions = tf.stack([tf.convert_to_tensor(p, dtype=tf.float32) for _, _, p in structure])  # [A, 3]
-    positions = fractional_coords(positions)  # Convert to angstrom
+    # positions = fractional_coords(positions)  # Convert to angstrom
 
     # Compute qnorms for each hkl vector (shape [N])
     qnorms = tf.norm(tf.cast(hkl_batch, tf.float32), axis=1)  # [N]
@@ -162,7 +169,7 @@ def get_structure_factors(hkl_batch, structure):
     # Compute phase terms: [N, A]
     phase_arg = tf.tensordot(tf.cast(hkl_batch, tf.float32), tf.transpose(positions), axes=1)  # [N, A]
     phase_arg = tf.cast(phase_arg, tf.float32)  # Ensure float32 type for complex conversion
-    phase = tf.exp(tf.complex(0.0,phase_arg))  # [N, A]
+    phase = tf.exp(tf.complex(0.0,-2 * np.pi * phase_arg))  # [N, A]
 
     # Element-wise multiply and sum over atoms
     F_hkl = tf.reduce_sum(fq_matrix * phase, axis=1)  # [N]
@@ -312,10 +319,10 @@ def atom_position_list(M1 ,  M2 ,  M3 ,  M4 ,  M48 ,  M56 ,  M69 ,  M77 ,  M78 ,
         ['O', 8, [0.66667 + 0.5*M39 - M40 - M68, 0.8416 - 0.25*M37 + 0.5*M38 - M47 + 0.5*M67 + 0.5*M99 - M100, 0.66667 + 0.5*M41 + 0.25*M42 + M55 - 0.5*M76 - M101 - 0.5*M102]],
     ]
 
-    # swap the element to  3b,c,3a
-    # res is a list of lists
-    for i in range(len(res)):
-        res[i][2][0] , res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][0] , res[i][2][1]
+    # # swap the element to  3b,c,3a
+    # # res is a list of lists
+    # for i in range(len(res)):
+    #     res[i][2][0] , res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][0] , res[i][2][1]
     return res
 
 # def atom_position_list(Pr1_1_dx, Pr1_1_dz, Pr1_2_dx, Pr1_2_dz, Pr1_3_dx, Pr1_3_dz, Pr1_4_dz, Pr1_5_dz, Pr1_6_dz, Ba1_1_dx, Ba1_1_dy, Ba1_1_dz, Ba1_2_dx, Ba1_2_dy, Ba1_2_dz, Ba1_3_dx, Ba1_3_dy, Ba1_3_dz, Ba1_4_dy, Ba1_4_dz, Ba1_5_dy, Ba1_5_dz, Ba1_6_dy, Ba1_6_dz, Cu1_1_dz, Cu1_2_dz, Cu1_3_dz, Cu1_4_dx, Cu1_4_dz, Cu1_5_dx, Cu1_5_dz, Cu1_6_dx, Cu1_6_dz, Cu2_1_dy, Cu2_1_dz, Cu2_2_dy, Cu2_2_dz, Cu2_3_dy, Cu2_3_dz, Cu2_4_dx, Cu2_4_dy, Cu2_4_dz, Cu2_5_dx, Cu2_5_dy, Cu2_5_dz, Cu2_6_dx, Cu2_6_dy, Cu2_6_dz, O1_1_dx, O1_1_dz, O1_2_dx, O1_2_dz, O1_3_dx, O1_3_dz, O1_4_dz, O1_5_dz, O1_6_dz, O2_1_dy, O2_1_dz, O2_2_dy, O2_2_dz, O2_3_dy, O2_3_dz, O2_4_dx, O2_4_dy, O2_4_dz, O2_5_dx, O2_5_dy, O2_5_dz, O2_6_dx, O2_6_dy, O2_6_dz, O3_1_dx, O3_1_dy, O3_1_dz, O3_2_dx, O3_2_dy, O3_2_dz, O3_3_dx, O3_3_dy, O3_3_dz, O3_4_dy, O3_4_dz, O3_5_dy, O3_5_dz, O3_6_dy, O3_6_dz, O4_1_dy, O4_1_dz, O4_2_dy, O4_2_dz, O4_3_dy, O4_3_dz, O4_4_dx, O4_4_dy, O4_4_dz, O4_5_dx, O4_5_dy, O4_5_dz, O4_6_dx, O4_6_dy, O4_6_dz):

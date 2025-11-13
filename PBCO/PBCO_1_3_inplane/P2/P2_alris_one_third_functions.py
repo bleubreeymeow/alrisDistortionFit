@@ -9,14 +9,20 @@ def transform_list_hkl_p63_p65(hkl_list):
 
     """
     # Convert hkl_list to a TensorFlow tensor
-    a = 3.82030
-    b = 3.88548
-    c = 11.68350
+    # a = 3.82030
+    # b = 3.88548
+    # c = 11.68350
+    # hkl_list = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
+
+    # h_new = hkl_list[:, 0] * 2 * np.pi / a
+    # k_new = hkl_list[:, 1] * 2 * np.pi / b
+    # l_new = hkl_list[:, 2] * 2 * np.pi / c
+
     hkl_list = tf.convert_to_tensor(hkl_list, dtype=tf.float32)
 
-    h_new = hkl_list[:, 0] * 2 * np.pi / a
-    k_new = hkl_list[:, 1] * 2 * np.pi / b
-    l_new = hkl_list[:, 2] * 2 * np.pi / c
+    h_new = -3 * hkl_list[:, 0]
+    k_new = hkl_list[: , 2]
+    l_new = 3 * hkl_list[:, 1]
 
     return tf.stack([h_new, k_new, l_new], axis=1)
 
@@ -142,7 +148,7 @@ def get_structure_factors(hkl_batch, structure):
     # Get atomic types and positions
     atoms = [a for a, _, _ in structure]
     positions = tf.stack([tf.convert_to_tensor(p, dtype=tf.float32) for _, _, p in structure])  # [A, 3]
-    positions = fractional_coords(positions)  # Convert to angstrom
+    # positions = fractional_coords(positions)  # Convert to angstrom
 
     # Compute qnorms for each hkl vector (shape [N])
     qnorms = tf.norm(tf.cast(hkl_batch, tf.float32), axis=1)  # [N]
@@ -162,34 +168,10 @@ def get_structure_factors(hkl_batch, structure):
     # Compute phase terms: [N, A]
     phase_arg = tf.tensordot(tf.cast(hkl_batch, tf.float32), tf.transpose(positions), axes=1)  # [N, A]
     phase_arg = tf.cast(phase_arg, tf.float32)  # Ensure float32 type for complex conversion
-    phase = tf.exp(tf.complex(0.0,phase_arg))  # [N, A]
+    phase = tf.exp(tf.complex(0.0,-2 * np.pi * phase_arg))  # [N, A]
 
     # Element-wise multiply and sum over atoms
     F_hkl = tf.reduce_sum(fq_matrix * phase, axis=1)  # [N]
-
-    # # # Generate all coordinates (0 to 25 inclusive)
-    # x = tf.range(0, 25, dtype=tf.float32)  # Use float32 for scaling
-    # y = tf.range(0, 25, dtype=tf.float32)
-    # z = tf.range(0, 25, dtype=tf.float32)
-
-    # # Create grid and stack into a tensor of shape [20, 20, 20, 3]
-    # xx, yy, zz = tf.meshgrid(x, y, z, indexing='ij')
-    # coordinates = tf.stack([xx, yy, zz], axis=-1)
-    # coordinates = tf.reshape(coordinates, (-1, 3))
-
-    # a = 3.82030 
-    # b = 3.88548
-    # c = 11.68350
-
-
-    # unit_cell_lengths = tf.constant([a, b, c], dtype=tf.float32)
-
-    # scaled_coordinates = coordinates * unit_cell_lengths  # Scale coordinates by unit cell lengths
-    # scaled_coordinates = tf.transpose(scaled_coordinates)  # Transpose to match hkl dimensions
-
-    # fourier_exp = tf.exp(tf.complex(0.0,tf.tensordot(hkl_batch, scaled_coordinates, axes=1)))
-    # sum_fourier_exp = tf.reduce_sum(fourier_exp, axis=1) 
-    # F_hkl = F_hkl * sum_fourier_exp
 
     return F_hkl
 
@@ -336,144 +318,11 @@ def atom_position_list( M1 ,  M2 ,  M27 ,  M40 ,  M3 ,  M4 ,  M5 ,  M22 ,  M28 ,
         ['O', 8, [0.66667 + 0.5*M21 - M52, 0.8416 - 0.25*M19 - M26 + 0.5*M38 + 0.5*M51, 0.33333 - 0.5*M20 + M39]],
         ['O', 8, [0.66667 + 0.5*M21 - M52, 0.8416 - 0.25*M19 - M26 + 0.5*M38 + 0.5*M51, 0.66667 + 0.5*M20 - M39]],
     ]
-    # swap the element in res[:, 2, 1] and res[:, 2, 2]
-    # res is a list of lists
-    for i in range(len(res)):
-        res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][1]
+    # # swap the element in res[:, 2, 1] and res[:, 2, 2]
+    # # res is a list of lists
+    # for i in range(len(res)):
+    #     res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][1]
 
     return res
 
-# def atom_position_list(Pr1_1_dx, Pr1_1_dz, Pr1_2_dx, Pr1_3_dz, Ba1_1_dx, Ba1_1_dy, Ba1_1_dz, Ba1_2_dx, Ba1_2_dy, Ba1_3_dy, Ba1_3_dz, Ba1_4_dy, Cu1_2_dz, Cu1_3_dx, Cu1_4_dx, Cu1_4_dz, Cu2_1_dy, Cu2_2_dy, Cu2_2_dz, Cu2_3_dx, Cu2_3_dy, Cu2_4_dx, Cu2_4_dy, Cu2_4_dz, O1_1_dz, O1_3_dx, O1_3_dz, O1_4_dx, O2_1_dx, O2_1_dy, O2_2_dx, O2_2_dy, O2_2_dz, O2_3_dy, O2_4_dy, O2_4_dz, O3_1_dy, O3_1_dz, O3_2_dy, O3_3_dx, O3_3_dy, O3_3_dz, O3_4_dx, O3_4_dy, O4_1_dy, O4_2_dy, O4_2_dz, O4_3_dx, O4_3_dy, O4_4_dx, O4_4_dy, O4_4_dz):
-#     '''
-#     Function used to retrieve the atomic positions in fractional coords w.r.t the superlattice
-#     unit cell. Transformation between the y positions and the z positions are done at the end
-#     of this function such that the coordinate system is in agreement with the parent str20251008_071232_iters200_epochs1000_lr0.007ucture.
-    
-#     '''
-
-#     res = [
-#         ['Pr', '59', [0.83333 + Pr1_1_dx, 0.5, 0.16667 + Pr1_1_dz]],
-#         ['Pr', '59', [0.1666699999999999 + Pr1_1_dx, 0.5, 0.16667 + Pr1_1_dz]],
-#         ['Pr', '59', [0.1666699999999999 + Pr1_1_dx, 0.5, 0.83333 + Pr1_1_dz]],
-#         ['Pr', '59', [0.83333 + Pr1_1_dx, 0.5, 0.83333 + Pr1_1_dz]],
-#         ['Pr', '59', [0.83333 + Pr1_2_dx, 0.5, 0.5]],
-#         ['Pr', '59', [0.1666699999999999 + Pr1_2_dx, 0.5, 0.5]],
-#         ['Pr', '59', [0.5, 0.5, 0.16667 + Pr1_3_dz]],
-#         ['Pr', '59', [0.5, 0.5, 0.83333 + Pr1_3_dz]],
-#         ['Pr', '59', [0.5, 0.5, 0.5]],
-#         ['Ba', '56', [0.83333 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.83333 + Ba1_1_dz]],
-#         ['Ba', '56', [0.83333 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.83333 + Ba1_1_dz]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.83333 + Ba1_1_dz]],
-#         ['Ba', '56', [0.83333 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.83333 + Ba1_1_dz]],
-#         ['Ba', '56', [0.83333 + Ba1_1_dx, 0.81607 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_1_dx, 0.18393 + Ba1_1_dy, 0.16667 + Ba1_1_dz]],
-#         ['Ba', '56', [0.83333 + Ba1_2_dx, 0.18393 + Ba1_2_dy, 0.5]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_2_dx, 0.81607 + Ba1_2_dy, 0.5]],
-#         ['Ba', '56', [0.1666699999999999 + Ba1_2_dx, 0.18393 + Ba1_2_dy, 0.5]],
-#         ['Ba', '56', [0.83333 + Ba1_2_dx, 0.81607 + Ba1_2_dy, 0.5]],
-#         ['Ba', '56', [0.5, 0.18393 + Ba1_3_dy, 0.16667 + Ba1_3_dz]],
-#         ['Ba', '56', [0.5, 0.81607 + Ba1_3_dy, 0.16667 + Ba1_3_dz]],
-#         ['Ba', '56', [0.5, 0.18393 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
-#         ['Ba', '56', [0.5, 0.81607 + Ba1_3_dy, 0.83333 + Ba1_3_dz]],
-#         ['Ba', '56', [0.5, 0.18393 + Ba1_4_dy, 0.5]],
-#         ['Ba', '56', [0.5, 0.81607 + Ba1_4_dy, 0.5]],
-#         ['Cu', '29', [0.0, 0.0, 0.0]],
-#         ['Cu', '29', [0.0, 0.0, 0.33333 + Cu1_2_dz]],
-#         ['Cu', '29', [0.0, 0.0, 0.66667 + Cu1_2_dz]],
-#         ['Cu', '29', [0.33333 + Cu1_3_dx, 0.0, 0.0]],
-#         ['Cu', '29', [0.66667 + Cu1_3_dx, 0.0, 0.0]],
-#         ['Cu', '29', [0.33333 + Cu1_4_dx, 0.0, 0.33333 + Cu1_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu1_4_dx, 0.0, 0.33333 + Cu1_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu1_4_dx, 0.0, 0.66667 + Cu1_4_dz]],
-#         ['Cu', '29', [0.33333 + Cu1_4_dx, 0.0, 0.66667 + Cu1_4_dz]],
-#         ['Cu', '29', [0.0, 0.35501 + Cu2_1_dy, 0.0]],
-#         ['Cu', '29', [0.0, 0.64499 + Cu2_1_dy, 0.0]],
-#         ['Cu', '29', [0.0, 0.35501 + Cu2_2_dy, 0.33333 + Cu2_2_dz]],
-#         ['Cu', '29', [0.0, 0.64499 + Cu2_2_dy, 0.33333 + Cu2_2_dz]],
-#         ['Cu', '29', [0.0, 0.35501 + Cu2_2_dy, 0.66667 + Cu2_2_dz]],
-#         ['Cu', '29', [0.0, 0.64499 + Cu2_2_dy, 0.66667 + Cu2_2_dz]],
-#         ['Cu', '29', [0.33333 + Cu2_3_dx, 0.35501 + Cu2_3_dy, 0.0]],
-#         ['Cu', '29', [0.66667 + Cu2_3_dx, 0.64499 + Cu2_3_dy, 0.0]],
-#         ['Cu', '29', [0.66667 + Cu2_3_dx, 0.35501 + Cu2_3_dy, 0.0]],
-#         ['Cu', '29', [0.33333 + Cu2_3_dx, 0.64499 + Cu2_3_dy, 0.0]],
-#         ['Cu', '29', [0.33333 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.33333 + Cu2_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.33333 + Cu2_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.66667 + Cu2_4_dz]],
-#         ['Cu', '29', [0.33333 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.66667 + Cu2_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.66667 + Cu2_4_dz]],
-#         ['Cu', '29', [0.33333 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.66667 + Cu2_4_dz]],
-#         ['Cu', '29', [0.33333 + Cu2_4_dx, 0.64499 + Cu2_4_dy, 0.33333 + Cu2_4_dz]],
-#         ['Cu', '29', [0.66667 + Cu2_4_dx, 0.35501 + Cu2_4_dy, 0.33333 + Cu2_4_dz]],
-#         ['O', '8', [0.0, 0.0, 0.16667 + O1_1_dz]],
-#         ['O', '8', [0.0, 0.0, 0.83333 + O1_1_dz]],
-#         ['O', '8', [0.0, 0.0, 0.5]],
-#         ['O', '8', [0.33333 + O1_3_dx, 0.0, 0.16667 + O1_3_dz]],
-#         ['O', '8', [0.66667 + O1_3_dx, 0.0, 0.16667 + O1_3_dz]],
-#         ['O', '8', [0.66667 + O1_3_dx, 0.0, 0.83333 + O1_3_dz]],
-#         ['O', '8', [0.33333 + O1_3_dx, 0.0, 0.83333 + O1_3_dz]],
-#         ['O', '8', [0.33333 + O1_4_dx, 0.0, 0.5]],
-#         ['O', '8', [0.66667 + O1_4_dx, 0.0, 0.5]],
-#         ['O', '8', [0.83333 + O2_1_dx, 0.37819 + O2_1_dy, 0.0]],
-#         ['O', '8', [0.1666699999999999 + O2_1_dx, 0.62181 + O2_1_dy, 0.0]],
-#         ['O', '8', [0.1666699999999999 + O2_1_dx, 0.37819 + O2_1_dy, 0.0]],
-#         ['O', '8', [0.83333 + O2_1_dx, 0.62181 + O2_1_dy, 0.0]],
-#         ['O', '8', [0.83333 + O2_2_dx, 0.37819 + O2_2_dy, 0.33333 + O2_2_dz]],
-#         ['O', '8', [0.1666699999999999 + O2_2_dx, 0.62181 + O2_2_dy, 0.33333 + O2_2_dz]],
-#         ['O', '8', [0.1666699999999999 + O2_2_dx, 0.37819 + O2_2_dy, 0.66667 + O2_2_dz]],
-#         ['O', '8', [0.83333 + O2_2_dx, 0.62181 + O2_2_dy, 0.66667 + O2_2_dz]],
-#         ['O', '8', [0.1666699999999999 + O2_2_dx, 0.62181 + O2_2_dy, 0.66667 + O2_2_dz]],
-#         ['O', '8', [0.83333 + O2_2_dx, 0.37819 + O2_2_dy, 0.66667 + O2_2_dz]],
-#         ['O', '8', [0.83333 + O2_2_dx, 0.62181 + O2_2_dy, 0.33333 + O2_2_dz]],
-#         ['O', '8', [0.1666699999999999 + O2_2_dx, 0.37819 + O2_2_dy, 0.33333 + O2_2_dz]],
-#         ['O', '8', [0.5, 0.37819 + O2_3_dy, 0.0]],
-#         ['O', '8', [0.5, 0.62181 + O2_3_dy, 0.0]],
-#         ['O', '8', [0.5, 0.37819 + O2_4_dy, 0.33333 + O2_4_dz]],
-#         ['O', '8', [0.5, 0.62181 + O2_4_dy, 0.33333 + O2_4_dz]],
-#         ['O', '8', [0.5, 0.37819 + O2_4_dy, 0.66667 + O2_4_dz]],
-#         ['O', '8', [0.5, 0.62181 + O2_4_dy, 0.66667 + O2_4_dz]],
-#         ['O', '8', [0.0, 0.37693 + O3_1_dy, 0.16667 + O3_1_dz]],
-#         ['O', '8', [0.0, 0.62307 + O3_1_dy, 0.16667 + O3_1_dz]],
-#         ['O', '8', [0.0, 0.37693 + O3_1_dy, 0.83333 + O3_1_dz]],
-#         ['O', '8', [0.0, 0.62307 + O3_1_dy, 0.83333 + O3_1_dz]],
-#         ['O', '8', [0.0, 0.37693 + O3_2_dy, 0.5]],
-#         ['O', '8', [0.0, 0.62307 + O3_2_dy, 0.5]],
-#         ['O', '8', [0.33333 + O3_3_dx, 0.37693 + O3_3_dy, 0.16667 + O3_3_dz]],
-#         ['O', '8', [0.66667 + O3_3_dx, 0.62307 + O3_3_dy, 0.16667 + O3_3_dz]],
-#         ['O', '8', [0.66667 + O3_3_dx, 0.37693 + O3_3_dy, 0.83333 + O3_3_dz]],
-#         ['O', '8', [0.33333 + O3_3_dx, 0.62307 + O3_3_dy, 0.83333 + O3_3_dz]],
-#         ['O', '8', [0.66667 + O3_3_dx, 0.62307 + O3_3_dy, 0.83333 + O3_3_dz]],
-#         ['O', '8', [0.33333 + O3_3_dx, 0.37693 + O3_3_dy, 0.83333 + O3_3_dz]],
-#         ['O', '8', [0.33333 + O3_3_dx, 0.62307 + O3_3_dy, 0.16667 + O3_3_dz]],
-#         ['O', '8', [0.66667 + O3_3_dx, 0.37693 + O3_3_dy, 0.16667 + O3_3_dz]],
-#         ['O', '8', [0.33333 + O3_4_dx, 0.37693 + O3_4_dy, 0.5]],
-#         ['O', '8', [0.66667 + O3_4_dx, 0.62307 + O3_4_dy, 0.5]],
-#         ['O', '8', [0.66667 + O3_4_dx, 0.37693 + O3_4_dy, 0.5]],
-#         ['O', '8', [0.33333 + O3_4_dx, 0.62307 + O3_4_dy, 0.5]],
-#         ['O', '8', [0.0, 0.1584 + O4_1_dy, 0.0]],
-#         ['O', '8', [0.0, 0.8416 + O4_1_dy, 0.0]],
-#         ['O', '8', [0.0, 0.1584 + O4_2_dy, 0.33333 + O4_2_dz]],
-#         ['O', '8', [0.0, 0.8416 + O4_2_dy, 0.33333 + O4_2_dz]],
-#         ['O', '8', [0.0, 0.1584 + O4_2_dy, 0.66667 + O4_2_dz]],
-#         ['O', '8', [0.0, 0.8416 + O4_2_dy, 0.66667 + O4_2_dz]],
-#         ['O', '8', [0.33333 + O4_3_dx, 0.1584 + O4_3_dy, 0.0]],
-#         ['O', '8', [0.66667 + O4_3_dx, 0.8416 + O4_3_dy, 0.0]],
-#         ['O', '8', [0.66667 + O4_3_dx, 0.1584 + O4_3_dy, 0.0]],
-#         ['O', '8', [0.33333 + O4_3_dx, 0.8416 + O4_3_dy, 0.0]],
-#         ['O', '8', [0.33333 + O4_4_dx, 0.1584 + O4_4_dy, 0.33333 + O4_4_dz]],
-#         ['O', '8', [0.66667 + O4_4_dx, 0.8416 + O4_4_dy, 0.33333 + O4_4_dz]],
-#         ['O', '8', [0.66667 + O4_4_dx, 0.1584 + O4_4_dy, 0.66667 + O4_4_dz]],
-#         ['O', '8', [0.33333 + O4_4_dx, 0.8416 + O4_4_dy, 0.66667 + O4_4_dz]],
-#         ['O', '8', [0.66667 + O4_4_dx, 0.8416 + O4_4_dy, 0.66667 + O4_4_dz]],
-#         ['O', '8', [0.33333 + O4_4_dx, 0.1584 + O4_4_dy, 0.66667 + O4_4_dz]],
-#         ['O', '8', [0.33333 + O4_4_dx, 0.8416 + O4_4_dy, 0.33333 + O4_4_dz]],
-#         ['O', '8', [0.66667 + O4_4_dx, 0.1584 + O4_4_dy, 0.33333 + O4_4_dz]]
-#     ]
-#     # swap the element in res[:, 2, 1] and res[:, 2, 2]
-#     # res is a list of lists
-#     for i in range(len(res)):
-#         res[i][2][1], res[i][2][2] = res[i][2][2], res[i][2][1]
-
-#     return res
 
